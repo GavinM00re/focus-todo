@@ -6,16 +6,18 @@
   const dateValid = s => { if (s === '') return true; if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number(s.slice(0,4)) < 1) return false; const d = new Date(s+'T12:00:00Z'); return Number.isFinite(d.getTime()) && d.toISOString().slice(0,10) === s; };
   const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let damagedStorage = false, storageSnapshot = null, appliedSeedIds = [];
-  let tasks = [], view = 'all', editing = null, undoAction = null, toastTimer;
+  let tasks = [], view = 'todo', editing = null, undoAction = null, toastTimer;
   function validate(data) {
     if (!Array.isArray(data) || data.length > 10000) throw new Error('Expected a task list with at most 10,000 tasks.');
     const ids = new Set();
     return data.map(t => {
       if (!t || typeof t.id !== 'string' || !t.id || ids.has(t.id) || typeof t.title !== 'string' || !t.title.trim() || t.title.length > 200 || typeof t.notes !== 'string' || t.notes.length > 2000 || !['high','medium','low'].includes(t.priority) || typeof t.due !== 'string' || !dateValid(t.due) || typeof t.done !== 'boolean' || !Number.isFinite(t.created)) throw new Error('This file contains invalid tasks. Nothing was imported.');
+      if (t.tags !== undefined && (!Array.isArray(t.tags) || t.tags.some(tag => typeof tag !== 'string'))) throw new Error('This file contains invalid tags. Nothing was imported.');
       ids.add(t.id);
-      return {id:t.id,title:t.title.trim(),notes:t.notes,priority:t.priority,due:t.due,done:t.done,created:t.created};
+      return {id:t.id,title:t.title.trim(),notes:t.notes,priority:t.priority,due:t.due,done:t.done,created:t.created,tags:normalizeTags(t.tags || [])};
     });
   }
+  function normalizeTags(tags) { return [...new Set(tags.map(tag => tag.trim()).filter(Boolean))]; }
   function notify(message, undo = null) { clearTimeout(toastTimer); $('toast').querySelector('span').textContent = message; $('toast').hidden = false; undoAction = undo; $('undo').hidden = !undo; toastTimer = setTimeout(() => { $('toast').hidden = true; undoAction = null; }, undo ? 12000 : 6500); }
   // Keep tasks and seed receipts together: a failed write cannot apply only half.
   function parseState(raw) {
@@ -74,17 +76,13 @@
   function render() {
     const current = today();
     const active = tasks.filter(t => !t.done), done = tasks.length - active.length;
-    const counts = {all: tasks.length,today:active.filter(t=>t.due===current).length,upcoming:active.filter(t=>t.due>current).length,completed:done};
-    for (const [key,count] of Object.entries(counts)) $('count-'+key).textContent = count;
-    $('stat-active').textContent = active.length; $('stat-today').textContent = counts.today; $('stat-done').textContent = done;
-    const percent = tasks.length ? Math.round(done/tasks.length*100) : 0;
-    $('progress-value').textContent = percent+'%'; $('progress-ring').style.background = `conic-gradient(var(--accent) ${percent}%,var(--line) ${percent}%)`;
-    $('progress-ring').setAttribute('aria-label',`${percent}% of tasks completed`);
+    $('count-todo').textContent = active.length;
+    $('count-completed').textContent = done;
     const query = $('search').value.trim().toLowerCase(), priority = $('priority-filter').value;
-    const filtered = tasks.filter(t => (view==='all' || (view==='today' && !t.done && t.due===current) || (view==='upcoming' && !t.done && t.due>current) || (view==='completed' && t.done)) && (priority==='all' || t.priority===priority) && `${t.title} ${t.notes}`.toLowerCase().includes(query));
+    const filtered = tasks.filter(t => (view==='completed' ? t.done : !t.done) && (priority==='all' || t.priority===priority) && `${t.title} ${t.notes} ${t.tags.join(' ')}`.toLowerCase().includes(query));
     const rank = {high:0,medium:1,low:2};
     filtered.sort((a,b) => Number(a.done)-Number(b.done) || ($('sort').value==='due' ? (a.due||'9999-99-99').localeCompare(b.due||'9999-99-99') : $('sort').value==='priority' ? rank[a.priority]-rank[b.priority] : 0) || b.created-a.created);
-    $('list-title').firstChild.textContent = ({all:'All tasks',today:'Today',upcoming:'Upcoming',completed:'Completed'})[view]+' ';
+    $('list-title').firstChild.textContent = ({todo:'To Do',completed:'Completed'})[view]+' ';
     $('list-count').textContent = filtered.length;
     const list = $('task-list'); list.replaceChildren();
     for (const t of filtered) {
@@ -95,6 +93,7 @@
       if(t.notes) body.append(node('p','task-notes',t.notes));
       const meta=node('div','task-meta'); meta.append(node('span','priority '+t.priority,t.priority+' priority'));
       if(t.due) { const date = new Date(t.due+'T12:00:00'); const label=t.due===current?'Today':date.toLocaleDateString(undefined,{month:'short',day:'numeric',...(date.getFullYear()!==new Date().getFullYear()?{year:'numeric'}:{})}); meta.append(node('span',!t.done&&t.due<current?'overdue':'',`${!t.done&&t.due<current?'Overdue · ':''}${label}`)); }
+      for (const tag of t.tags) meta.append(node('span','tag',tag));
       body.append(meta);
       const actions=node('div','task-actions'), edit=node('button','','Edit'), del=node('button','','Delete');
       edit.setAttribute('aria-label',`Edit ${t.title}`); del.setAttribute('aria-label',`Delete ${t.title}`);
@@ -103,18 +102,18 @@
     }
     $('empty').hidden=filtered.length>0;
     const isSearch=Boolean(query)||priority!=='all';
-    $('empty').querySelector('h3').textContent=isSearch?'No matches just yet.':view==='completed'?'Small wins are on their way.':view==='today'?'A little breathing room.':view==='upcoming'?'Nothing on the horizon.':tasks.length?'All clear here.':'A fresh start.';
-    $('empty').querySelector('p').textContent=isSearch?'Try a different search or priority.':view==='completed'?'Finished tasks will appear here.':view==='today'?'No open tasks due today. Add one, or enjoy the space.':view==='upcoming'?'Tasks with a future due date will appear here.':'Add your first task and take it one step at a time.';
+    $('empty').querySelector('h3').textContent=isSearch?'No matching tasks.':view==='completed'?'No completed tasks.':'No tasks to do.';
     $('empty-add').hidden=isSearch||view==='completed';
-    $('footer-copy').textContent=tasks.length?`${active.length} task${active.length===1?'':'s'} remaining · ${done} completed`:'Your next small step starts here.';
-    $('clear-completed').hidden=!done;
+    $('clear-completed').hidden=view!=='completed'||!done;
+
   }
   function openDialog(task=null) {
-    editing=task?.id||null; $('task-form').reset(); $('dialog-title').textContent=task?'Make it your own.':'A new beginning.';
+    editing=task?.id||null; $('task-form').reset(); $('dialog-title').textContent=task?'Edit task':'New task';
     $('task-title').value=task?.title||''; $('task-notes').value=task?.notes||''; $('task-priority').value=task?.priority||'medium'; $('task-due').value=task?.due||'';
+    $('task-tags').value=task?.tags.join(', ')||'';
     $('task-title').setCustomValidity(''); $('task-dialog').showModal(); $('task-title').focus();
   }
-  $('task-form').addEventListener('submit',e=>{ e.preventDefault(); const title=$('task-title').value.trim(); if(!title){$('task-title').setCustomValidity('Please give your task a name.');$('task-title').reportValidity();return;} const existing=tasks.find(t=>t.id===editing);const task={id:existing?.id||uid(),title,notes:$('task-notes').value.trim(),priority:$('task-priority').value,due:$('task-due').value,done:existing?.done||false,created:existing?.created||Date.now()};if(save(existing?tasks.map(t=>t.id===editing?task:t):[...tasks,task])){$('task-dialog').close();notify(existing?'Task updated.':'Task added.');}});
+  $('task-form').addEventListener('submit',e=>{ e.preventDefault(); const title=$('task-title').value.trim(); if(!title){$('task-title').setCustomValidity('Please give your task a name.');$('task-title').reportValidity();return;} const existing=tasks.find(t=>t.id===editing);const task={id:existing?.id||uid(),title,notes:$('task-notes').value,tags:normalizeTags($('task-tags').value.split(',')),priority:$('task-priority').value,due:$('task-due').value,done:existing?.done||false,created:existing?.created??Date.now()};if(save(existing?tasks.map(t=>t.id===editing?task:t):[...tasks,task])){$('task-dialog').close();notify(existing?'Task updated.':'Task added.');}});
   $('task-title').addEventListener('input',()=> $('task-title').setCustomValidity(''));
   ['new-task','empty-add'].forEach(id=>$(id).addEventListener('click',()=>openDialog()));
   ['close-dialog','cancel-dialog'].forEach(id=>$(id).addEventListener('click',()=> $('task-dialog').close()));
@@ -125,13 +124,12 @@
   $('export').addEventListener('click',()=>{const blob=new Blob([damagedStorage ? (localStorage.getItem(KEY) || '') : JSON.stringify({version:1,exportedAt:new Date().toISOString(),tasks},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=node('a');a.href=url;a.download=`focus-${damagedStorage?'recovery':'tasks'}-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify(damagedStorage ? 'Raw recovery copy exported. Keep it safe; it may need repair before importing.' : 'Backup exported. Import it on your other computer.');});
   $('import').addEventListener('click',()=> $('import-file').click());
   $('import-file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>10000000)throw new Error('Please choose a JSON backup smaller than 10 MB.');const parsed=JSON.parse(await file.text());if(!parsed || parsed.version!==1)throw new Error('Choose a valid Focus JSON backup (version 1).');const imported=validate(parsed.tasks);const fresh=imported.filter(t=>!tasks.some(x=>x.id===t.id));if(save([...tasks,...fresh]))notify(`Imported ${fresh.length} task${fresh.length===1?'':'s'}. Existing tasks were kept.`);}catch(error){notify(error instanceof SyntaxError?'That file is not valid JSON. Nothing was imported.':error.message);}finally{e.target.value='';}});
-  function applyTheme(theme){document.documentElement.dataset.theme=theme;$('theme').textContent=theme==='dark'?'◐  Switch to light mode':'◐  Switch to dark mode';}
+  function applyTheme(theme){document.documentElement.dataset.theme=theme;$('theme').textContent=theme==='dark'?'Light mode':'Dark mode';}
   $('theme').addEventListener('click',()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(next);try{localStorage.setItem(THEME,next);}catch{notify('Theme changed, but browser storage is unavailable.');}});
   loadTasks();
   try { applyTheme(localStorage.getItem(THEME)|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')); }
   catch { applyTheme('light'); }
   window.addEventListener('storage',e=>{if(e.key===KEY || e.key===null){loadTasks();render();}});
   document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&!$('task-dialog').open){e.preventDefault();$('search').focus();}});
-  $('date-label').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
   render();setInterval(render,60000);
 })();

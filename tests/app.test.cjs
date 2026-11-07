@@ -13,7 +13,7 @@ function harness({fail=false,damaged=false,raw=null,seeds=[]}={}) {
  const context = vm.createContext({damagedStorage:damaged,tasks:[],appliedSeedIds:[],storageSnapshot:null,focusPublishedTasks:seeds,KEY:'test',localStorage:{getItem(){return disk.raw;},setItem(k,v){if(disk.fail)throw Error('blocked');disk.raw=v;context.saved=v;}},render(){},notify(message){context.message=message;}});
  vm.runInContext(`${date}\n${validation}\n${saving}`,context);context.disk=disk;return context;
 }
-const item = (extra={}) => ({id:'a',title:' Example ',notes:'notes',priority:'medium',due:'2026-11-07',done:false,created:1,...extra});
+const item = (extra={}) => ({id:'a',title:' Example ',notes:'notes',priority:'medium',due:'2026-11-07',done:false,created:1,tags:[],...extra});
 test('valid backup is normalized and unknown fields removed',()=>{const h=harness();const result=h.validate([item({extra:'ignored'})]);assert.equal(result[0].title,'Example');assert.equal(result[0].extra,undefined);});
 test('invalid dates safely reject, leap days validate',()=>{const h=harness();for(const due of ['2026-99-99','2026-02-30','2025-02-29','0000-01-01','nonsense'])assert.throws(()=>h.validate([item({due})]),/invalid tasks/);assert.equal(h.validate([item({due:'2024-02-29'})]).length,1);assert.equal(h.validate([item({due:''})]).length,1);});
 test('malformed shapes, duplicates and oversized backups reject',()=>{const h=harness();for(const data of [null,{},[item(),item()],[item({title:' '})],[item({done:'yes'})],[item({priority:'urgent'})],[item({notes:'x'.repeat(2001)})]])assert.throws(()=>h.validate(data));assert.throws(()=>h.validate(Array(10001).fill(item())),/10,000/);});
@@ -87,4 +87,26 @@ test('full legacy lists are preserved and future seeds wait until there is room'
  const tasks=Array.from({length:10000},(_,i)=>item({id:String(i)}));
  const h=harness({raw:JSON.stringify(tasks),seeds:[item({id:'seed'})]});h.loadTasks();assert.equal(h.tasks.length,10000);assert.equal(h.appliedSeedIds.length,0);
  h.save(h.tasks.slice(1));h.loadTasks();assert.equal(h.tasks.length,10000);assert.equal(h.tasks.at(-1).id,'seed');
+});
+
+test('tags normalize and old backups safely default to empty tags',()=>{
+ const h=harness(); const old=item(); delete old.tags;
+ assert.deepEqual(plain(h.validate([old])[0].tags),[]);
+ assert.deepEqual(plain(h.validate([item({tags:[' lab ','lab','','follow-up']})])[0].tags),['lab','follow-up']);
+ for(const tags of [null,'lab',[1],{}])assert.throws(()=>h.validate([item({tags})]),/invalid tags/);
+});
+test('tags survive edits, storage reload and backup round-trip without changing notes or completion',()=>{
+ const h=harness({seeds:[item({id:'seed'})]}); h.loadTasks();
+ const task={...h.tasks[0],tags:['lab','follow-up'],notes:'  exact notes  ',done:true};
+ assert.equal(h.save([task]),true);h.loadTasks();
+ const backup=JSON.stringify({version:1,tasks:h.tasks});
+ assert.deepEqual(plain(h.validate(JSON.parse(backup).tasks)),[plain(task)]);
+ assert.deepEqual(plain(h.appliedSeedIds),['seed']);
+});
+test('legacy tasks without tags keep edits and migrate beside all 13 starter entries',()=>{
+ const old=item({id:'legacy',title:'Existing local task',done:true});delete old.tags;
+ const seeds=vm.runInNewContext(publishedSource+';globalThis.focusPublishedTasks');
+ const h=harness({raw:JSON.stringify([old]),seeds});h.loadTasks();
+ assert.equal(h.tasks.length,14);assert.deepEqual(plain(h.tasks[0]),{...old,tags:[]});
+ assert.equal(h.tasks.filter(t=>!t.done).length,12);assert.equal(h.tasks.filter(t=>t.done).length,2);
 });

@@ -1,12 +1,12 @@
 # Focus
 
-A calm, responsive personal to-do list. Plain HTML, CSS, and JavaScript: no build step, external dependencies, account, tracking, or server required.
+A minimal, responsive personal to-do list. Plain HTML, CSS, and JavaScript: no build step, external dependencies, account, tracking, or server required.
 
 ## Use it
 
 - Add, edit, complete, and delete tasks. Deleted tasks and cleared completed tasks can be undone for 12 seconds.
-- Add notes, a priority, and an optional due date. Switch between All tasks, Today, Upcoming, and Completed.
-- Search titles and notes, filter priorities, and sort by creation time, due date, or priority. Completed tasks appear after open tasks.
+- Add comma-separated tags, notes, a priority, and an optional due date. To Do shows only open tasks; Completed shows only finished tasks.
+- Search titles, notes, and tags, filter priorities, and sort by creation time, due date, or priority. Tags are trimmed and deduplicated, and remain in backups. Older tasks without tags load with an empty tag list.
 - Toggle light/dark mode. Your system preference is used initially.
 - Use **Export** to download a JSON backup. Open the site on another computer and **Import** that file. Import adds new task IDs, skips duplicates, and keeps existing tasks unchanged. It does not overwrite edits to existing tasks.
 - Press Ctrl+K / Cmd+K to search. Forms and task actions work with the keyboard; Escape closes the task dialog.
@@ -56,7 +56,6 @@ Automated tests use the Node built-in test runner and isolated validation and st
 
 ## Verification
 
-- Syntax checks passed for the app, published dataset, and local server.
-- All 19 automated tests pass. They cover validation, old arrays, backups, seed content, matching-ID edit preservation, repeat loads, deletion and clear persistence, future seeds, failed storage, corrupt-data protection, cross-tab refresh/stale saves, and full-list migration.
-- Earlier browser checks covered add, edit, reload persistence, completion, Completed view, search no-results, delete/undo, and light/dark appearance. Managed-preview browser QA also verified all 13 starter entries, preservation of an existing edited local task, the completed starter task, no duplicates on reload, and a deleted starter task staying deleted after reload. The subsequent removal of name attribution was verified in source and automated tests.
-- File-picker import/export and mobile viewport behavior still need manual browser verification.
+Run the checks above before publication. Automated tests cover validation, tag normalization and backup round-trips, legacy data migration, seed receipts, preserved edits and deletions, failed storage, corrupt data, and cross-tab stale writes. Browser QA should cover both task tabs, task editing, tags, reload, export/import, and responsive layouts.
+
+Latest local QA: all 22 automated tests passed, as did JavaScript syntax checks. Managed-preview browser testing passed task creation, tag edits, trimming/deduplication, tag search, reload persistence, preservation of existing preview tasks, and export download. No application runtime errors were observed; browser-extension metadata errors were unrelated. The import file-chooser test stalled and its outcome was not verified. Mobile viewport and fresh-browser 12/1 counts were not browser-tested in this pass; seed counts and legacy migration are covered by automated tests.
