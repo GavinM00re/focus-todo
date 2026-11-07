@@ -1,0 +1,4 @@
+node_modules/
+test-results/
+focus-tasks-*.json
+.DS_Store

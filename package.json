@@ -1,0 +1,9 @@
+{
+  "name": "focus-todo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/serve.cjs",
+    "test": "node --test tests/app.test.cjs"
+  }
+}

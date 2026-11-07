@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#255d4a"><meta name="description" content="A calm, personal place for your tasks. No accounts, no distractions.">
+<title>Focus — Your day, a little clearer.</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23255d4a'/%3E%3Cpath d='m18 33 9 9 19-22' stroke='white' stroke-width='6' fill='none'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css"><script src="app.js" defer></script>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+<a class="brand" href="./" aria-label="Focus home"><span class="brand-icon">✓</span> focus<span class="brand-dot">.</span></a>
+<p class="eyebrow sidebar-label">YOUR SPACE</p>
+<nav aria-label="Task views" id="views">
+<button class="nav-item selected" data-view="all" aria-current="page"><span>◫ &nbsp; All tasks</span><span id="count-all" class="count">0</span></button>
+<button class="nav-item" data-view="today"><span>☀ &nbsp; Today</span><span id="count-today" class="count">0</span></button>
+<button class="nav-item" data-view="upcoming"><span>↗ &nbsp; Upcoming</span><span id="count-upcoming" class="count">0</span></button>
+<button class="nav-item" data-view="completed"><span>✓ &nbsp; Completed</span><span id="count-completed" class="count">0</span></button>
+</nav>
+<div class="sidebar-bottom"><div class="privacy"><span class="privacy-icon">⌂</span><strong>A space of your own</strong><p>Tasks stay in this browser, not synced. Export a backup to move them to another computer.</p></div><div class="data-actions"><button id="export">↓ Export</button><button id="import">↑ Import</button><input type="file" id="import-file" accept="application/json,.json" hidden></div><button id="theme" class="theme-button">◐ &nbsp; Switch to dark mode</button></div>
+</aside>
+<main>
+<header class="topbar"><span id="date-label"></span><span class="local-badge"><span></span> Stored on this device</span></header>
+<section class="heading"><div><p class="eyebrow">MAKE ROOM FOR WHAT MATTERS</p><h1>Your day, a little clearer.</h1><p class="subtitle">One thing at a time. You've got this.</p></div><div class="progress-ring" id="progress-ring"><span id="progress-value">0%</span><small>complete</small></div></section>
+<section class="stats" aria-label="Task overview"><div><span class="stat-label">In progress</span><strong id="stat-active">0</strong><small>Things to make happen</small></div><div><span class="stat-label">Due today</span><strong id="stat-today">0</strong><small>A little focus for today</small></div><div><span class="stat-label">Completed</span><strong id="stat-done">0</strong><small>Every step counts</small></div></section>
+<section class="workspace" aria-labelledby="list-title">
+<div class="list-heading"><h2 id="list-title">All tasks <span id="list-count">0</span></h2><button class="primary" id="new-task"><span aria-hidden="true">＋</span> New task</button></div>
+<div class="toolbar"><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Find a task…" aria-label="Search tasks"></label><label class="sr-only" for="priority-filter">Filter priority</label><select id="priority-filter"><option value="all">All priorities</option><option value="high">High priority</option><option value="medium">Medium priority</option><option value="low">Low priority</option></select><label class="sr-only" for="sort">Sort tasks</label><select id="sort"><option value="newest">Newest first</option><option value="due">Due date</option><option value="priority">Priority</option></select></div>
+<div id="task-list"></div><div class="empty" id="empty"><div class="empty-icon">✓</div><h3>A fresh start.</h3><p>Add your first task and take it one step at a time.</p><button id="empty-add" class="text-button">＋ Add a task</button></div>
+<div class="list-footer"><span id="footer-copy">Your next small step starts here.</span><button id="clear-completed" hidden>Clear completed</button></div>
+</section><footer class="page-footer">Less noise. More focus.<p class="mobile-storage">Tasks stay in this browser, not synced. Export and import to move them to another computer.</p></footer>
+</main>
+</div>
+<dialog id="task-dialog"><form id="task-form"><div class="modal-header"><h2 id="dialog-title">A new beginning.</h2><button type="button" class="icon-button" id="close-dialog" aria-label="Close dialog">×</button></div><p class="modal-subtitle">Big plans start with small steps.</p><label for="task-title">What needs doing?</label><input id="task-title" maxlength="200" required placeholder="Give your task a name" autocomplete="off"><label for="task-notes">Notes <span class="muted">(optional)</span></label><textarea id="task-notes" maxlength="2000" rows="3" placeholder="A few details to help you get started…"></textarea><div class="form-row"><div><label for="task-priority">Priority</label><select id="task-priority"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select></div><div><label for="task-due">Due date <span class="muted">(optional)</span></label><input id="task-due" type="date" max="9999-12-31"></div></div><div class="modal-actions"><button type="button" id="cancel-dialog">Cancel</button><button class="primary" type="submit">Save task</button></div></form></dialog>
+<div id="toast" role="status" aria-live="polite" hidden><span></span><button id="undo" hidden>Undo</button></div>
+<noscript>This task list needs JavaScript enabled to save and manage your tasks.</noscript>
+</body></html>
