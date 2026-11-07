@@ -5,7 +5,7 @@
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const dateValid = s => { if (s === '') return true; if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number(s.slice(0,4)) < 1) return false; const d = new Date(s+'T12:00:00Z'); return Number.isFinite(d.getTime()) && d.toISOString().slice(0,10) === s; };
   const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  let damagedStorage = false;
+  let damagedStorage = false, storageSnapshot = null, appliedSeedIds = [];
   let tasks = [], view = 'all', editing = null, undoAction = null, toastTimer;
   function validate(data) {
     if (!Array.isArray(data) || data.length > 10000) throw new Error('Expected a task list with at most 10,000 tasks.');
@@ -17,10 +17,57 @@
     });
   }
   function notify(message, undo = null) { clearTimeout(toastTimer); $('toast').querySelector('span').textContent = message; $('toast').hidden = false; undoAction = undo; $('undo').hidden = !undo; toastTimer = setTimeout(() => { $('toast').hidden = true; undoAction = null; }, undo ? 12000 : 6500); }
+  // Keep tasks and seed receipts together: a failed write cannot apply only half.
+  function parseState(raw) {
+    if (raw === null) return {tasks: [], appliedSeedIds: []};
+    const data = JSON.parse(raw);
+    if (Array.isArray(data)) return {tasks: validate(data), appliedSeedIds: []};
+    if (!data || data.version !== 1 || !Array.isArray(data.tasks)) throw new Error('Unrecognized saved data.');
+    const receipts = data.appliedSeedIds === undefined ? [] : data.appliedSeedIds;
+    if (!Array.isArray(receipts) || receipts.some(id => typeof id !== 'string' || !id)) throw new Error('Invalid seed receipts.');
+    return {tasks: validate(data.tasks), appliedSeedIds: [...new Set(receipts)]};
+  }
+  function mergeSeeds(state, seeds) {
+    const receipts = new Set(state.appliedSeedIds), ids = new Set(state.tasks.map(t => t.id));
+    const next = [...state.tasks];
+    for (const seed of validate(seeds)) {
+      if (receipts.has(seed.id)) continue;
+      if (!ids.has(seed.id)) {
+        // Defer only missing entries when full, without losing any existing task.
+        if (next.length >= 10000) continue;
+        next.push(seed); ids.add(seed.id);
+      }
+      receipts.add(seed.id);
+    }
+    return {tasks: next, appliedSeedIds: [...receipts]};
+  }
+  function serializeState(state) { return JSON.stringify({version: 1, tasks: state.tasks, appliedSeedIds: state.appliedSeedIds}); }
+  function loadTasks() {
+    let raw, state;
+    try { raw = localStorage.getItem(KEY); state = parseState(raw); }
+    catch { damagedStorage = true; notify('Saved data is unreadable. Changes are disabled; Export saves a raw recovery copy.'); return false; }
+    damagedStorage = false; storageSnapshot = raw;
+    tasks = state.tasks; appliedSeedIds = state.appliedSeedIds;
+    try {
+      const merged = mergeSeeds(state, globalThis.focusPublishedTasks || []);
+      const serialized = serializeState(merged);
+      if (serialized !== raw) localStorage.setItem(KEY, serialized);
+      storageSnapshot = serialized; tasks = merged.tasks; appliedSeedIds = merged.appliedSeedIds;
+    } catch { notify('Could not save published tasks. Your saved list is unchanged. Free browser storage and reload to try again.'); }
+    return true;
+  }
   function save(next) {
     if (damagedStorage) { notify('Changes are disabled to protect unreadable saved data. Export a recovery copy first.'); return false; }
     if (next.length > 10000) { notify('This list is limited to 10,000 tasks. Export and clear some tasks first.'); return false; }
-    try { localStorage.setItem(KEY,JSON.stringify(next)); tasks = next; render(); return true; }
+    try {
+      // A tab can receive a storage event late. Refuse a stale write rather than
+      // overwrite another tab's changes; the user can retry on the refreshed list.
+      if (localStorage.getItem(KEY) !== storageSnapshot) {
+        loadTasks(); render(); notify('Saved tasks changed in another tab. Review the refreshed list and try again.'); return false;
+      }
+      const serialized = serializeState({tasks: next, appliedSeedIds});
+      localStorage.setItem(KEY, serialized); storageSnapshot = serialized; tasks = next; render(); return true;
+    }
     catch { notify('Could not save. Browser storage may be full or blocked. Export a backup first.'); return false; }
   }
   function node(tag, className, text) { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; }
@@ -80,8 +127,10 @@
   $('import-file').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>10000000)throw new Error('Please choose a JSON backup smaller than 10 MB.');const parsed=JSON.parse(await file.text());if(!parsed || parsed.version!==1)throw new Error('Choose a valid Focus JSON backup (version 1).');const imported=validate(parsed.tasks);const fresh=imported.filter(t=>!tasks.some(x=>x.id===t.id));if(save([...tasks,...fresh]))notify(`Imported ${fresh.length} task${fresh.length===1?'':'s'}. Existing tasks were kept.`);}catch(error){notify(error instanceof SyntaxError?'That file is not valid JSON. Nothing was imported.':error.message);}finally{e.target.value='';}});
   function applyTheme(theme){document.documentElement.dataset.theme=theme;$('theme').textContent=theme==='dark'?'◐  Switch to light mode':'◐  Switch to dark mode';}
   $('theme').addEventListener('click',()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(next);try{localStorage.setItem(THEME,next);}catch{notify('Theme changed, but browser storage is unavailable.');}});
-  try{const raw=localStorage.getItem(KEY);if(raw)tasks=validate(JSON.parse(raw));applyTheme(localStorage.getItem(THEME)|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));}catch{damagedStorage=true; notify('Saved data is unreadable. Changes are disabled; Export saves a raw recovery copy.');applyTheme('light');}
-  window.addEventListener('storage',e=>{if(e.key===KEY){try{tasks=e.newValue?validate(JSON.parse(e.newValue)):[];render();}catch{notify('Could not read tasks updated in another tab.');}}});
+  loadTasks();
+  try { applyTheme(localStorage.getItem(THEME)|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')); }
+  catch { applyTheme('light'); }
+  window.addEventListener('storage',e=>{if(e.key===KEY || e.key===null){loadTasks();render();}});
   document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&!$('task-dialog').open){e.preventDefault();$('search').focus();}});
   $('date-label').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
   render();setInterval(render,60000);

@@ -5,7 +5,7 @@
 <meta name="theme-color" content="#255d4a"><meta name="description" content="A calm, personal place for your tasks. No accounts, no distractions.">
 <title>Focus — Your day, a little clearer.</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23255d4a'/%3E%3Cpath d='m18 33 9 9 19-22' stroke='white' stroke-width='6' fill='none'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css"><script src="app.js" defer></script>
+<link rel="stylesheet" href="styles.css"><script src="published-tasks.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
 <div class="app">
@@ -18,7 +18,7 @@
 <button class="nav-item" data-view="upcoming"><span>↗ &nbsp; Upcoming</span><span id="count-upcoming" class="count">0</span></button>
 <button class="nav-item" data-view="completed"><span>✓ &nbsp; Completed</span><span id="count-completed" class="count">0</span></button>
 </nav>
-<div class="sidebar-bottom"><div class="privacy"><span class="privacy-icon">⌂</span><strong>A space of your own</strong><p>Tasks stay in this browser, not synced. Export a backup to move them to another computer.</p></div><div class="data-actions"><button id="export">↓ Export</button><button id="import">↑ Import</button><input type="file" id="import-file" accept="application/json,.json" hidden></div><button id="theme" class="theme-button">◐ &nbsp; Switch to dark mode</button></div>
+<div class="sidebar-bottom"><div class="privacy"><span class="privacy-icon">⌂</span><strong>A space of your own</strong><p>Published starter tasks appear once here. Your edits stay in this browser, not synced. Export a backup to move them.</p></div><div class="data-actions"><button id="export">↓ Export</button><button id="import">↑ Import</button><input type="file" id="import-file" accept="application/json,.json" hidden></div><button id="theme" class="theme-button">◐ &nbsp; Switch to dark mode</button></div>
 </aside>
 <main>
 <header class="topbar"><span id="date-label"></span><span class="local-badge"><span></span> Stored on this device</span></header>
