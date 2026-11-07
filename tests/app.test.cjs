@@ -110,3 +110,13 @@ test('legacy tasks without tags keep edits and migrate beside all 13 starter ent
  assert.equal(h.tasks.length,14);assert.deepEqual(plain(h.tasks[0]),{...old,tags:[]});
  assert.equal(h.tasks.filter(t=>!t.done).length,12);assert.equal(h.tasks.filter(t=>t.done).length,2);
 });
+
+test('HTML versions script and style URLs against their current content',()=>{
+ const path=require('node:path'),{createHash}=require('node:crypto');
+ const root=path.join(__dirname,'..');
+ const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ for(const asset of ['styles.css','published-tasks.js','app.js']){
+  const hash=createHash('sha256').update(fs.readFileSync(path.join(root,asset))).digest('hex').slice(0,12);
+  assert.ok(html.includes(`"${asset}?v=${hash}"`),`${asset} needs an updated cache version`);
+ }
+});

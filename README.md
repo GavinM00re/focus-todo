@@ -58,4 +58,8 @@ Automated tests use the Node built-in test runner and isolated validation and st
 
 Run the checks above before publication. Automated tests cover validation, tag normalization and backup round-trips, legacy data migration, seed receipts, preserved edits and deletions, failed storage, corrupt data, and cross-tab stale writes. Browser QA should cover both task tabs, task editing, tags, reload, export/import, and responsive layouts.
 
-Latest local QA: all 22 automated tests passed, as did JavaScript syntax checks. Managed-preview browser testing passed task creation, tag edits, trimming/deduplication, tag search, reload persistence, preservation of existing preview tasks, and export download. No application runtime errors were observed; browser-extension metadata errors were unrelated. The import file-chooser test stalled and its outcome was not verified. Mobile viewport and fresh-browser 12/1 counts were not browser-tested in this pass; seed counts and legacy migration are covered by automated tests.
+Latest local QA: all 23 automated tests passed, as did JavaScript syntax checks. Managed-preview browser testing passed task creation, tag edits, trimming/deduplication, tag search, reload persistence, preservation of existing preview tasks, and export download. No application runtime errors were observed; browser-extension metadata errors were unrelated. The import file-chooser test stalled and its outcome was not verified. Mobile viewport and fresh-browser 12/1 counts were not browser-tested in this pass; seed counts and legacy migration are covered by automated tests.
+
+### Asset cache versions
+
+`index.html` uses content-version query strings for CSS and JavaScript so returning browsers do not mix a new page with stale assets. When an asset changes, update its `?v=` value to the first 12 characters of that file’s SHA-256 hash before publishing.
